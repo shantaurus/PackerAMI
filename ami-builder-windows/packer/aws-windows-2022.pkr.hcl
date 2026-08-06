@@ -39,9 +39,11 @@ build {
   sources = ["source.amazon-ebs.windows"]
 
   # 1. Patch OS
-  provisioner "powershell" {
-    script = "../Scripts/install-updates.ps1"
-  }
+ provisioner "powershell" {
+  elevated_user     = "Administrator"
+  elevated_password = build.Password
+  script            = "../Scripts/install-updates.ps1"
+}
 
   # 2. Sanitize Environment Variables (Guardrail)
   provisioner "powershell" {
