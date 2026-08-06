@@ -9,7 +9,7 @@ packer {
 
 source "amazon-ebs" "windows" {
   region         = "us-east-1"
-  instance_type  = "t2.micro"
+  instance_type  = "t3.micro"
   communicator   = "winrm"
   winrm_username = "Administrator"
   winrm_use_ssl   = false
