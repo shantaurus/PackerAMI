@@ -40,12 +40,12 @@ build {
 
   # 1. Patch OS
   provisioner "powershell" {
-    script = "../scripts/install-updates.ps1"
+    script = "../Scripts/install-updates.ps1"
   }
 
   # 2. Sanitize Environment Variables (Guardrail)
   provisioner "powershell" {
-    script = "../scripts/sanitize-env.ps1"
+    script = "../Scripts/sanitize-env.ps1"
   }
 
   # 3. Sysprep
