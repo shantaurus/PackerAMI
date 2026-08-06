@@ -27,7 +27,7 @@ source "amazon-ebs" "windows" {
   }
 
   ami_name       = "Enlyte-Authorized-AMI-Win2022-v${formatdate("YYYYMMDD-hhmm", timestamp())}"
-  user_data_file = "../scripts/bootstrap-winrm.ps1"
+  user_data_file = "../Scripts/bootstrap-winrm.ps1"
 
   tags = {
     Name       = "Enlyte-Authorized-AMI-Win2022"
