@@ -53,7 +53,8 @@ build {
   # 3. Sysprep
   provisioner "powershell" {
     inline = [
-      "C:\\Program Files\\Amazon\\EC2Launch\\ec2launch.exe sysprep"
+      "& 'C:\\Program Files\\Amazon\\EC2Launch\\ec2launch.exe' reset",
+      "& 'C:\\Program Files\\Amazon\\EC2Launch\\ec2launch.exe' sysprep"
     ]
   }
 }
