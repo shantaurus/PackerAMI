@@ -33,3 +33,11 @@ if ($rawPSModulePath) {
     $sanitizedPSModulePath = $cleanPSModuleEntries -join ';'
     [Environment]::SetEnvironmentVariable("PSModulePath", $sanitizedPSModulePath, [EnvironmentVariableTarget]::Machine)
 }
+# Stop the Windows Update service and set it to Disabled
+Stop-Service -Name wuauserv -ErrorAction SilentlyContinue
+Set-Service -Name wuauserv -StartupType Disabled
+
+# Optional: Disable Background Intelligent Transfer Service (BITS)
+Stop-Service -Name BITS -ErrorAction SilentlyContinue
+Set-Service -Name BITS -StartupType Disabled
+
