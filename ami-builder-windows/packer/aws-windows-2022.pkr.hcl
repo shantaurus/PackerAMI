@@ -6,10 +6,6 @@ packer {
       version = ">= 1.8.2"
       source  = "github.com/hashicorp/amazon"
     }
-    ansible = {
-      version = ">= 1.1.0"
-      source  = "github.com/hashicorp/ansible"
-    }
   }
 }
 
@@ -159,17 +155,17 @@ variable "max_retries" {
 
 variable "custom_kms_key" {
   type    = string
-  default = "7d0fcd44-6c19-4eb5-a255-23acade29d2f"
+  default = "YOUR_KMS_KEY_HERE"
 }
 
-# --- Local Variables & AMI Chaining Logic ---
+# --- Local Variables & Dynamic AMI Chaining Logic ---
 
 locals {
   timestamp   = formatdate("YYYYMM", timestamp())
   create_date = formatdate("MM/DD/YYYY", timestamp())
 }
 
-# 1. Primary Lookup: Search for custom image created during current month
+# 1. Primary Lookup: Search for custom image created during active month
 data "amazon-ami" "internal_current_month" {
   filters = {
     virtualization-type = "hvm"
@@ -202,7 +198,7 @@ locals {
   selected_source_ami_name  = local.has_internal_ami ? data.amazon-ami.internal_current_month.name : data.amazon-ami.aws_official_base.name
   selected_source_ami_owner = local.has_internal_ami ? data.amazon-ami.internal_current_month.owner_id : data.amazon-ami.aws_official_base.owner_id
 
-  # Version calculation logic
+  # Version calculation logic (vYYYYMM-1 for initial run, increments vYYYYMM-2, vYYYYMM-3 for subsequent runs)
   latest_version      = local.has_internal_ami ? try(regex("-v\\d{6}-(\\d+)$", data.amazon-ami.internal_current_month.name)[0], "0") : "0"
   incremented_version = format("%d", parseint(local.latest_version, 10) + 1)
   next_version        = local.incremented_version
@@ -229,6 +225,9 @@ source "amazon-ebs" "windows_buildami" {
   pause_before_connecting = var.pause_before_connecting
   max_retries             = var.max_retries
   deprecate_at            = timeadd(timestamp(), "43200h")
+
+  # Bootstrapping WinRM via User Data script
+  user_data_file = "../Scripts/bootstrap-winrm.ps1"
 
   launch_block_device_mappings {
     device_name           = "/dev/sda1"
@@ -287,20 +286,24 @@ build {
     "source.amazon-ebs.windows_buildami"
   ]
 
-  provisioner "ansible" {
-    extra_arguments = [
-      "--extra-vars=temp_dir='c:\\windows\\temp'",
-      "--extra-vars=ansible_winrm_server_cert_validation=ignore",
-      "--extra-vars=ansible_winrm_operation_timeout_sec=3600",
-      "--extra-vars=ansible_winrm_read_timeout_sec=4000"
-    ]
-    playbook_file = "./provisioners/ansible/playbook.yml"
-    galaxy_file   = "./provisioners/ansible/requirements.yml"
-    user          = var.admin_user
-    use_proxy     = false
-    groups        = ["WINDOWS"]
+  # 1. Install Windows Updates (Executes install-updates.ps1 with auto-reboot support)
+  provisioner "powershell" {
+    script            = "../Scripts/install-updates.ps1"
+    elevated_user     = var.admin_user
+    elevated_password = build.Password
   }
 
+  # 2. Restart target instance if updates require a reboot
+  provisioner "windows-restart" {
+    restart_timeout = "30m"
+  }
+
+  # 3. Sanitize System Environment Variables (Executes sanitize-env.ps1)
+  provisioner "powershell" {
+    script = "../Scripts/sanitize-env.ps1"
+  }
+
+  # 4. Sysprep / Generalize system before imaging
   provisioner "powershell" {
     script      = "./provisioners/scripts/run_sysprep.ps1"
     max_retries = 5
