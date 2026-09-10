@@ -208,9 +208,11 @@ locals {
   incremented_version = format("%d", parseint(local.latest_version, 10) + 1)
   next_version        = local.incremented_version
 
-  # Cleaned AMI Name string replacing any disallowed characters with a hyphen
+  # Base string construct
   raw_ami_name   = "${var.tags_name}-v${local.timestamp}-${local.next_version}"
-  clean_ami_name = regex_replace(local.raw_ami_name, "[^a-zA-Z0-9()[\\] ./'@_-]", "-")
+
+  # Cleaned AMI Name string replacing any disallowed characters with a hyphen
+  clean_ami_name = regex_replace(local.raw_ami_name, "[^a-zA-Z0-9()\\[\\] ./'@_-]", "-")
 }
 
 # --- Source Configuration ---
@@ -314,7 +316,7 @@ build {
 
   # 4. Sysprep / Generalize system before imaging
   provisioner "powershell" {
-    script      = "./provisioners/scripts/run_sysprep.ps1"
+    script      = "../Scripts/run_sysprep.ps1"
     max_retries = 5
     pause_after = "120s"
   }
