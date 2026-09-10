@@ -232,7 +232,6 @@ source "amazon-ebs" "windows_buildami" {
   winrm_use_ssl           = var.winrm_use_ssl
   pause_before_connecting = var.pause_before_connecting
   max_retries             = var.max_retries
-  deprecate_at            = timeadd(timestamp(), "43200h")
 
   # Bootstrapping WinRM via User Data script
   user_data_file = "../Scripts/bootstrap-winrm.ps1"
