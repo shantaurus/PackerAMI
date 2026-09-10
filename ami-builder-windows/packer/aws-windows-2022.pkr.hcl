@@ -191,7 +191,7 @@ data "amazon-ami" "aws_official_base" {
 
 locals {
   # Flag checking if a custom AMI exists in 'self' for active month
-  has_internal_ami = length(data.amazon-ami.internal_current_month.ids) > 0
+  has_internal_ami = length(data.amazon-ami.internal_current_month.id) > 0
 
   # Dynamic AMI Chaining Choice
   selected_source_ami_id    = local.has_internal_ami ? data.amazon-ami.internal_current_month.id : data.amazon-ami.aws_official_base.id
