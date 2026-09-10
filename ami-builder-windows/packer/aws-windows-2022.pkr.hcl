@@ -190,24 +190,32 @@ data "amazon-ami" "aws_official_base" {
 }
 
 locals {
+  # Safe extraction of attributes from internal AMI
+  internal_ami_id    = try(data.amazon-ami.internal_current_month.id, "")
+  internal_ami_name  = try(data.amazon-ami.internal_current_month.name, "")
+  internal_ami_owner = try(data.amazon-ami.internal_current_month.owner_id, "")
+
   # Flag checking if a custom AMI exists in 'self' for active month
-  has_internal_ami = length(data.amazon-ami.internal_current_month.id) > 0
+  has_internal_ami = local.internal_ami_id != ""
 
   # Dynamic AMI Chaining Choice
-  selected_source_ami_id    = local.has_internal_ami ? data.amazon-ami.internal_current_month.id : data.amazon-ami.aws_official_base.id
-  selected_source_ami_name  = local.has_internal_ami ? data.amazon-ami.internal_current_month.name : data.amazon-ami.aws_official_base.name
-  selected_source_ami_owner = local.has_internal_ami ? data.amazon-ami.internal_current_month.owner_id : data.amazon-ami.aws_official_base.owner_id
+  selected_source_ami_id    = local.has_internal_ami ? local.internal_ami_id : data.amazon-ami.aws_official_base.id
+  selected_source_ami_name  = local.has_internal_ami ? local.internal_ami_name : data.amazon-ami.aws_official_base.name
+  selected_source_ami_owner = local.has_internal_ami ? local.internal_ami_owner : data.amazon-ami.aws_official_base.owner_id
 
   # Version calculation logic (vYYYYMM-1 for initial run, increments vYYYYMM-2, vYYYYMM-3 for subsequent runs)
-  latest_version      = local.has_internal_ami ? try(regex("-v\\d{6}-(\\d+)$", data.amazon-ami.internal_current_month.name)[0], "0") : "0"
+  latest_version      = local.has_internal_ami ? try(regex("-v\\d{6}-(\\d+)$", local.internal_ami_name)[0], "0") : "0"
   incremented_version = format("%d", parseint(local.latest_version, 10) + 1)
   next_version        = local.incremented_version
+
+  # Cleaned AMI Name string
+  raw_ami_name        = "${var.tags_name}-v${local.timestamp}-${local.next_version}"
 }
 
 # --- Source Configuration ---
 
 source "amazon-ebs" "windows_buildami" {
-  ami_name                = "${var.tags_name}-v${local.timestamp}-${local.next_version}"
+  ami_name                = clean_resource_name(local.raw_ami_name)
   ami_description         = var.ami_description
   source_ami              = local.selected_source_ami_id
   instance_type           = var.instance_type
@@ -244,7 +252,7 @@ source "amazon-ebs" "windows_buildami" {
   }
 
   tags = {
-    "Name"             = "${var.tags_name}-v${local.timestamp}-${local.next_version}"
+    "Name"             = local.raw_ami_name
     "source_ami_id"    = local.selected_source_ami_id
     "source_ami_name"  = local.selected_source_ami_name
     "source_ami_owner" = local.selected_source_ami_owner
@@ -255,7 +263,7 @@ source "amazon-ebs" "windows_buildami" {
   }
 
   run_tags = {
-    "Name"               = "${var.tags_name}-v${local.timestamp}-${local.next_version}"
+    "Name"               = local.raw_ami_name
     "application-owner"  = var.tags_application_owner
     "purpose"            = var.tags_purpose
     "product"            = var.tags_product
@@ -267,7 +275,7 @@ source "amazon-ebs" "windows_buildami" {
   }
 
   run_volume_tags = {
-    "Name"               = "${var.tags_name}-v${local.timestamp}-${local.next_version}"
+    "Name"               = local.raw_ami_name
     "application-owner"  = var.tags_application_owner
     "purpose"            = var.tags_purpose
     "product"            = var.tags_product
