@@ -203,16 +203,13 @@ locals {
   selected_source_ami_name  = local.has_internal_ami ? local.internal_ami_name : data.amazon-ami.aws_official_base.name
   selected_source_ami_owner = local.has_internal_ami ? local.internal_ami_owner : data.amazon-ami.aws_official_base.owner_id
 
-  # Version calculation logic (vYYYYMM-1 for initial run, increments vYYYYMM-2, vYYYYMM-3 for subsequent runs)
+  # Version calculation logic
   latest_version      = local.has_internal_ami ? try(regex("-v\\d{6}-(\\d+)$", local.internal_ami_name)[0], "0") : "0"
   incremented_version = format("%d", parseint(local.latest_version, 10) + 1)
   next_version        = local.incremented_version
 
-  # Base string construct
-  raw_ami_name   = "${var.tags_name}-v${local.timestamp}-${local.next_version}"
-
-  # Cleaned AMI Name string replacing any disallowed characters with a hyphen
-  clean_ami_name = regex_replace(local.raw_ami_name, "[^a-zA-Z0-9()\\[\\] ./'@_-]", "-")
+  # Cleaned AMI Name string (replaces spaces/invalid chars cleanly)
+  clean_ami_name = replace("${var.tags_name}-v${local.timestamp}-${local.next_version}", " ", "-")
 }
 
 # --- Source Configuration ---
