@@ -155,7 +155,7 @@ variable "max_retries" {
 
 variable "custom_kms_key" {
   type    = string
-  default = "YOUR_KMS_KEY_HERE"
+  default = "7d0fcd44-6c19-4eb5-a255-23acade29d2f"
 }
 
 # --- Local Variables & Dynamic AMI Chaining Logic ---
