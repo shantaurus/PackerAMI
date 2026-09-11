@@ -43,7 +43,7 @@ variable "tags_environment" {
 
 variable "tags_owner" {
   type    = string
-  default = "wintel@mitchell.com"
+  default = "prashanthgpr528@gmail.com"
 }
 
 variable "tags_create_auto_alarms" {
@@ -74,7 +74,7 @@ variable "ami_description" {
 
 variable "awsAccount" {
   type    = string
-  default = "corSharedServicesProd"
+  default = "103942587500"
 }
 
 variable "awsRegion" {
