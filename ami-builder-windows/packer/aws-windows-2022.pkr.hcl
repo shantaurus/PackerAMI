@@ -203,13 +203,14 @@ locals {
   selected_source_ami_name  = local.has_internal_ami ? local.internal_ami_name : data.amazon-ami.aws_official_base.name
   selected_source_ami_owner = local.has_internal_ami ? local.internal_ami_owner : data.amazon-ami.aws_official_base.owner_id
 
-  # Version calculation logic using safe element split
-  raw_version_match   = local.has_internal_ami ? try(element(split("-", local.internal_ami_name), length(split("-", local.internal_ami_name)) - 1), "0") : "0"
-  latest_version      = can(parseint(local.raw_version_match, 10)) ? local.raw_version_match : "0"
-  incremented_version = format("%d", parseint(local.latest_version, 10) + 1)
+  # Validation-safe version extraction logic
+  latest_version      = local.has_internal_ami ? try(element(split("-", local.internal_ami_name), length(split("-", local.internal_ami_name)) - 1), "0") : "0"
+  parsed_version      = can(parseint(local.latest_version, 10)) ? parseint(local.latest_version, 10) : 0
+  incremented_version = format("%d", local.parsed_version + 1)
 
-  # HCL2-native sanitization (replaces spaces with hyphens)
-  clean_ami_name = replace("${var.tags_name}-v${local.timestamp}-${local.incremented_version}", " ", "-")
+  # Explicit name string formatting
+  clean_prefix   = replace(var.tags_name, " ", "-")
+  clean_ami_name = "${local.clean_prefix}-v${local.timestamp}-${local.incremented_version}"
 }
 
 # --- Source Configuration ---
