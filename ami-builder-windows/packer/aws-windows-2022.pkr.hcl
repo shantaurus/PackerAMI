@@ -84,22 +84,22 @@ variable "awsRegion" {
 
 variable "vpc_id" {
   type    = string
-  default = "vpc-0824b420556f8605e"
+  default = "vpc-035c6eaaf4938e070"
 }
 
 variable "subnet_id" {
   type    = string
-  default = "subnet-0918ee71a565b26ba"
+  default = "subnet-0c0ce9b84dcd2a36c"
 }
 
 variable "security_group_id" {
   type    = string
-  default = "sg-0281f71e0e7b6d55a"
+  default = "sg-0102421aff7146d82"
 }
 
 variable "instance_type" {
   type    = string
-  default = "t3.xlarge"
+  default = "t3.micro"
 }
 
 variable "root_volume_size" {
