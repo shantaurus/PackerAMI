@@ -187,7 +187,6 @@ data "amazon-ami" "aws_official_base" {
 # --- Local Variables ---
 
 locals {
-  # Format date explicitly to prevent special character injection
   timestamp   = formatdate("YYYYMM", timestamp())
   create_date = formatdate("MM/DD/YYYY", timestamp())
 
@@ -199,7 +198,7 @@ locals {
   # Check if internal AMI actually exists
   has_internal_ami = local.internal_ami_id != "" && local.internal_ami_name != ""
 
-  # Safe extraction from official AWS base AMI data source with clean fallback string
+  # Fallback values for static validation
   official_ami_id    = try(data.amazon-ami.aws_official_base.id, "ami-00000000000000000")
   official_ami_name  = try(data.amazon-ami.aws_official_base.name, "Windows-Server-2022-English-Full-Base")
   official_ami_owner = try(data.amazon-ami.aws_official_base.owner_id, var.source_ami_owner)
@@ -214,16 +213,16 @@ locals {
   parsed_ver          = can(parseint(local.extracted_ver, 10)) ? parseint(local.extracted_ver, 10) : 0
   incremented_version = format("%d", local.parsed_ver + 1)
 
-  # Strip any unexpected characters using regexreplace
+  # Correct HCL2 string sanitization function
   raw_prefix     = replace(var.tags_name, " ", "-")
-  clean_prefix   = regexreplace(local.raw_prefix, "[^a-zA-Z0-9._/@'()\\-\\[\\]]", "")
+  clean_prefix   = regex_replace(local.raw_prefix, "[^a-zA-Z0-9._/@'()\\-\\[\\]]", "")
   clean_ami_name = "${local.clean_prefix}-v${local.timestamp}-${local.incremented_version}"
 }
 
 # --- Source Configuration ---
 
 source "amazon-ebs" "windows_buildami" {
-  ami_name                = "{{ clean_resource_name `${local.clean_ami_name}` }}"
+  ami_name                = local.clean_ami_name
   ami_description         = var.ami_description
   source_ami              = local.selected_source_ami_id
   instance_type           = var.instance_type
