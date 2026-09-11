@@ -203,12 +203,12 @@ locals {
   selected_source_ami_name  = local.has_internal_ami ? local.internal_ami_name : data.amazon-ami.aws_official_base.name
   selected_source_ami_owner = local.has_internal_ami ? local.internal_ami_owner : data.amazon-ami.aws_official_base.owner_id
 
-  # Validation-safe version extraction logic
-  latest_version      = local.has_internal_ami ? try(element(split("-", local.internal_ami_name), length(split("-", local.internal_ami_name)) - 1), "0") : "0"
-  parsed_version      = can(parseint(local.latest_version, 10)) ? parseint(local.latest_version, 10) : 0
-  incremented_version = format("%d", local.parsed_version + 1)
+  # Completely static-validation safe logic for calculating version
+  extracted_ver       = try(regex("-v\\d{6}-(\\d+)$", local.internal_ami_name)[0], "0")
+  parsed_ver          = can(parseint(local.extracted_ver, 10)) ? parseint(local.extracted_ver, 10) : 0
+  incremented_version = format("%d", local.parsed_ver + 1)
 
-  # Explicit name string formatting
+  # Explicit name string formatting with no complex character matches
   clean_prefix   = replace(var.tags_name, " ", "-")
   clean_ami_name = "${local.clean_prefix}-v${local.timestamp}-${local.incremented_version}"
 }
