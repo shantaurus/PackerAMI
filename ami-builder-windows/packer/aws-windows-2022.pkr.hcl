@@ -203,20 +203,19 @@ locals {
   selected_source_ami_name  = local.has_internal_ami ? local.internal_ami_name : data.amazon-ami.aws_official_base.name
   selected_source_ami_owner = local.has_internal_ami ? local.internal_ami_owner : data.amazon-ami.aws_official_base.owner_id
 
-  # Extract increment sequence safely without triggering validation character rules
+  # Version calculation logic using safe element split
   raw_version_match   = local.has_internal_ami ? try(element(split("-", local.internal_ami_name), length(split("-", local.internal_ami_name)) - 1), "0") : "0"
   latest_version      = can(parseint(local.raw_version_match, 10)) ? local.raw_version_match : "0"
   incremented_version = format("%d", parseint(local.latest_version, 10) + 1)
 
-  # Guaranteed safe AMI Name constructed with explicit underscores and hyphens only
-  clean_prefix   = replace(var.tags_name, " ", "_")
-  clean_ami_name = "${local.clean_prefix}-v${local.timestamp}-${local.incremented_version}"
+  # Raw base AMI name string
+  raw_ami_name = "${var.tags_name}-v${local.timestamp}-${local.incremented_version}"
 }
 
 # --- Source Configuration ---
 
 source "amazon-ebs" "windows_buildami" {
-  ami_name                = local.clean_ami_name
+  ami_name                = clean_resource_name(local.raw_ami_name)
   ami_description         = var.ami_description
   source_ami              = local.selected_source_ami_id
   instance_type           = var.instance_type
@@ -252,7 +251,7 @@ source "amazon-ebs" "windows_buildami" {
   }
 
   tags = {
-    "Name"             = local.clean_ami_name
+    "Name"             = clean_resource_name(local.raw_ami_name)
     "source_ami_id"    = local.selected_source_ami_id
     "source_ami_name"  = local.selected_source_ami_name
     "source_ami_owner" = local.selected_source_ami_owner
@@ -263,7 +262,7 @@ source "amazon-ebs" "windows_buildami" {
   }
 
   run_tags = {
-    "Name"               = local.clean_ami_name
+    "Name"               = clean_resource_name(local.raw_ami_name)
     "application-owner"  = var.tags_application_owner
     "purpose"            = var.tags_purpose
     "product"            = var.tags_product
@@ -275,7 +274,7 @@ source "amazon-ebs" "windows_buildami" {
   }
 
   run_volume_tags = {
-    "Name"               = local.clean_ami_name
+    "Name"               = clean_resource_name(local.raw_ami_name)
     "application-owner"  = var.tags_application_owner
     "purpose"            = var.tags_purpose
     "product"            = var.tags_product
