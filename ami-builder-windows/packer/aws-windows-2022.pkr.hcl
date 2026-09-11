@@ -190,29 +190,24 @@ data "amazon-ami" "aws_official_base" {
 }
 
 locals {
-  # Safe extraction of attributes from internal AMI
-  internal_ami_id    = try(data.amazon-ami.internal_current_month.id, "")
-  internal_ami_name  = try(data.amazon-ami.internal_current_month.name, "")
-  internal_ami_owner = try(data.amazon-ami.internal_current_month.owner_id, "")
+  # Safe extraction from data source
+  internal_ami_id   = try(data.amazon-ami.internal_current_month.id, "")
+  internal_ami_name = try(data.amazon-ami.internal_current_month.name, "")
 
-  # Flag checking if a custom AMI exists in 'self' for active month
-  has_internal_ami = local.internal_ami_id != ""
+  # Flag to check if an AMI actually returned
+  has_internal_ami = local.internal_ami_id != "" && local.internal_ami_name != ""
 
-  # Dynamic AMI Chaining Choice
-  selected_source_ami_id    = local.has_internal_ami ? local.internal_ami_id : data.amazon-ami.aws_official_base.id
-  selected_source_ami_name  = local.has_internal_ami ? local.internal_ami_name : data.amazon-ami.aws_official_base.name
-  selected_source_ami_owner = local.has_internal_ami ? local.internal_ami_owner : data.amazon-ami.aws_official_base.owner_id
-
-  # Completely static-validation safe logic for calculating version
-  extracted_ver       = try(regex("-v\\d{6}-(\\d+)$", local.internal_ami_name)[0], "0")
-  parsed_ver          = can(parseint(local.extracted_ver, 10)) ? parseint(local.extracted_ver, 10) : 0
+  # Version extraction: Only try regex IF we actually have a valid AMI name string
+  extracted_ver = local.has_internal_ami ? try(regex("-v\\d{6}-(\\d+)$", local.internal_ami_name)[0], "0") : "0"
+  parsed_ver    = can(parseint(local.extracted_ver, 10)) ? parseint(local.extracted_ver, 10) : 0
+  
+  # Increment build version
   incremented_version = format("%d", local.parsed_ver + 1)
 
-  # Explicit name string formatting with no complex character matches
+  # Clean AMI Name (Guaranteed valid during 'packer validate')
   clean_prefix   = replace(var.tags_name, " ", "-")
   clean_ami_name = "${local.clean_prefix}-v${local.timestamp}-${local.incremented_version}"
 }
-
 # --- Source Configuration ---
 
 source "amazon-ebs" "windows_buildami" {
