@@ -13,7 +13,7 @@ packer {
 
 variable "tags_name" {
   type    = string
-  default = "Enlyte-Authorized-AMI-Win2025"
+  default = "Enlyte-Authorized-AMI-Win2022"
 }
 
 variable "tags_created_by" {
@@ -33,7 +33,7 @@ variable "tags_purpose" {
 
 variable "tags_product" {
   type    = string
-  default = "win2025_ami"
+  default = "win2022_ami"
 }
 
 variable "tags_environment" {
@@ -51,10 +51,10 @@ variable "tags_create_auto_alarms" {
   default = "no"
 }
 
-# Official AWS Windows Server 2025 Base AMI defaults
+# Official AWS Windows Server Base AMI defaults
 variable "source_ami" {
   type    = string
-  default = "Windows_Server-2025-English-Full-Base-*"
+  default = "Windows_Server-2022-English-Full-Base-*"
 }
 
 variable "source_ami_owner" {
@@ -64,12 +64,12 @@ variable "source_ami_owner" {
 
 variable "ami_purpose" {
   type    = string
-  default = "win2025_server"
+  default = "win2022_server"
 }
 
 variable "ami_description" {
   type    = string
-  default = "CIS AMI Enlyte Authorized Win2025 server"
+  default = "CIS AMI Enlyte Authorized Win2022 server"
 }
 
 variable "awsAccount" {
@@ -177,7 +177,7 @@ data "amazon-ami" "internal_current_month" {
   region      = var.awsRegion
 }
 
-# 2. Fallback Lookup: Search for official AWS Windows Server 2025 Base AMI
+# 2. Fallback Lookup: Search for official AWS Windows Server Base AMI
 data "amazon-ami" "aws_official_base" {
   filters = {
     virtualization-type = "hvm"
@@ -203,13 +203,14 @@ locals {
   selected_source_ami_name  = local.has_internal_ami ? local.internal_ami_name : data.amazon-ami.aws_official_base.name
   selected_source_ami_owner = local.has_internal_ami ? local.internal_ami_owner : data.amazon-ami.aws_official_base.owner_id
 
-  # Version calculation logic
-  latest_version      = local.has_internal_ami ? try(regex("-v\\d{6}-(\\d+)$", local.internal_ami_name)[0], "0") : "0"
+  # Extract increment sequence safely without triggering validation character rules
+  raw_version_match   = local.has_internal_ami ? try(element(split("-", local.internal_ami_name), length(split("-", local.internal_ami_name)) - 1), "0") : "0"
+  latest_version      = can(parseint(local.raw_version_match, 10)) ? local.raw_version_match : "0"
   incremented_version = format("%d", parseint(local.latest_version, 10) + 1)
-  next_version        = local.incremented_version
 
-  # Cleaned AMI Name string (replaces spaces/invalid chars cleanly)
-  clean_ami_name = replace("${var.tags_name}-v${local.timestamp}-${local.next_version}", " ", "-")
+  # Guaranteed safe AMI Name constructed with explicit underscores and hyphens only
+  clean_prefix   = replace(var.tags_name, " ", "_")
+  clean_ami_name = "${local.clean_prefix}-v${local.timestamp}-${local.incremented_version}"
 }
 
 # --- Source Configuration ---
@@ -258,7 +259,7 @@ source "amazon-ebs" "windows_buildami" {
     "project"          = "ccoe"
     "ami_purpose"      = var.ami_purpose
     "patch-owner"      = var.tags_owner
-    "operatingSystem"  = "Windows Server 2025"
+    "operatingSystem"  = "Windows Server 2022"
   }
 
   run_tags = {
@@ -270,7 +271,7 @@ source "amazon-ebs" "windows_buildami" {
     "project"            = "ccoe"
     "create_auto_alarms" = var.tags_create_auto_alarms
     "patch-owner"        = var.tags_owner
-    "operatingSystem"    = "Windows Server 2025"
+    "operatingSystem"    = "Windows Server 2022"
   }
 
   run_volume_tags = {
@@ -282,7 +283,7 @@ source "amazon-ebs" "windows_buildami" {
     "project"            = "ccoe"
     "create_auto_alarms" = var.tags_create_auto_alarms
     "patch-owner"        = var.tags_owner
-    "operatingSystem"    = "Windows Server 2025"
+    "operatingSystem"    = "Windows Server 2022"
   }
 }
 
