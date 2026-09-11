@@ -222,7 +222,7 @@ locals {
 # --- Source Configuration ---
 
 source "amazon-ebs" "windows_buildami" {
-  ami_name                = local.clean_ami_name
+  ami_name                = "${var.tags_name}-v202609-1"
   ami_description         = var.ami_description
   source_ami              = local.selected_source_ami_id
   instance_type           = var.instance_type
