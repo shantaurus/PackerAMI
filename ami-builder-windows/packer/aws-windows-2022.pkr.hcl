@@ -158,18 +158,13 @@ variable "custom_kms_key" {
   default = "7d0fcd44-6c19-4eb5-a255-23acade29d2f"
 }
 
-# --- Local Variables & Dynamic AMI Chaining Logic ---
+# --- Data Sources ---
 
-locals {
-  timestamp   = formatdate("YYYYMM", timestamp())
-  create_date = formatdate("MM/DD/YYYY", timestamp())
-}
-
-# 1. Primary Lookup: Search for custom image created during active month
+# 1. Primary Lookup: Custom image created during active month
 data "amazon-ami" "internal_current_month" {
   filters = {
     virtualization-type = "hvm"
-    name                = "${var.tags_name}-v${local.timestamp}*"
+    name                = "${var.tags_name}-v${formatdate("YYYYMM", timestamp())}*"
     root-device-type    = "ebs"
   }
   owners      = ["self"]
@@ -177,7 +172,7 @@ data "amazon-ami" "internal_current_month" {
   region      = var.awsRegion
 }
 
-# 2. Fallback Lookup: Search for official AWS Windows Server Base AMI
+# 2. Fallback Lookup: Official AWS Windows Server Base AMI
 data "amazon-ami" "aws_official_base" {
   filters = {
     virtualization-type = "hvm"
@@ -189,25 +184,40 @@ data "amazon-ami" "aws_official_base" {
   region      = var.awsRegion
 }
 
-locals {
-  # Safe extraction from data source
-  internal_ami_id   = try(data.amazon-ami.internal_current_month.id, "")
-  internal_ami_name = try(data.amazon-ami.internal_current_month.name, "")
+# --- Local Variables ---
 
-  # Flag to check if an AMI actually returned
+locals {
+  timestamp   = formatdate("YYYYMM", timestamp())
+  create_date = formatdate("MM/DD/YYYY", timestamp())
+
+  # Safe extraction of attributes from internal data source
+  internal_ami_id    = try(data.amazon-ami.internal_current_month.id, "")
+  internal_ami_name  = try(data.amazon-ami.internal_current_month.name, "")
+  internal_ami_owner = try(data.amazon-ami.internal_current_month.owner_id, "")
+
+  # Check if internal AMI actually exists
   has_internal_ami = local.internal_ami_id != "" && local.internal_ami_name != ""
 
-  # Version extraction: Only try regex IF we actually have a valid AMI name string
-  extracted_ver = local.has_internal_ami ? try(regex("-v\\d{6}-(\\d+)$", local.internal_ami_name)[0], "0") : "0"
-  parsed_ver    = can(parseint(local.extracted_ver, 10)) ? parseint(local.extracted_ver, 10) : 0
-  
-  # Increment build version
+  # Safe extraction from official AWS base AMI data source
+  official_ami_id    = try(data.amazon-ami.aws_official_base.id, "ami-placeholder")
+  official_ami_name  = try(data.amazon-ami.aws_official_base.name, "official-base")
+  official_ami_owner = try(data.amazon-ami.aws_official_base.owner_id, var.source_ami_owner)
+
+  # Dynamic AMI Selection
+  selected_source_ami_id    = local.has_internal_ami ? local.internal_ami_id : local.official_ami_id
+  selected_source_ami_name  = local.has_internal_ami ? local.internal_ami_name : local.official_ami_name
+  selected_source_ami_owner = local.has_internal_ami ? local.internal_ami_owner : local.official_ami_owner
+
+  # Version increment calculation
+  extracted_ver       = local.has_internal_ami ? try(regex("-v\\d{6}-(\\d+)$", local.internal_ami_name)[0], "0") : "0"
+  parsed_ver          = can(parseint(local.extracted_ver, 10)) ? parseint(local.extracted_ver, 10) : 0
   incremented_version = format("%d", local.parsed_ver + 1)
 
-  # Clean AMI Name (Guaranteed valid during 'packer validate')
+  # Formatted target AMI Name
   clean_prefix   = replace(var.tags_name, " ", "-")
   clean_ami_name = "${local.clean_prefix}-v${local.timestamp}-${local.incremented_version}"
 }
+
 # --- Source Configuration ---
 
 source "amazon-ebs" "windows_buildami" {
@@ -229,7 +239,6 @@ source "amazon-ebs" "windows_buildami" {
   pause_before_connecting = var.pause_before_connecting
   max_retries             = var.max_retries
 
-  # Bootstrapping WinRM via User Data script
   user_data_file = "../Scripts/bootstrap-winrm.ps1"
 
   launch_block_device_mappings {
@@ -289,24 +298,24 @@ build {
     "source.amazon-ebs.windows_buildami"
   ]
 
-  # 1. Install Windows Updates (Executes install-updates.ps1 with auto-reboot support)
+  # 1. Install Windows Updates
   provisioner "powershell" {
     script            = "../Scripts/install-updates.ps1"
     elevated_user     = var.admin_user
     elevated_password = build.Password
   }
 
-  # 2. Restart target instance if updates require a reboot
+  # 2. Restart target instance
   provisioner "windows-restart" {
     restart_timeout = "30m"
   }
 
-  # 3. Sanitize System Environment Variables (Executes sanitize-env.ps1)
+  # 3. Sanitize Environment Variables
   provisioner "powershell" {
     script = "../Scripts/sanitize-env.ps1"
   }
 
-  # 4. Sysprep / Generalize system before imaging
+  # 4. Generalize with Sysprep
   provisioner "powershell" {
     script      = "../Scripts/run_sysprep.ps1"
     max_retries = 5
