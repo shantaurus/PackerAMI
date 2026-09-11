@@ -208,14 +208,14 @@ locals {
   latest_version      = can(parseint(local.raw_version_match, 10)) ? local.raw_version_match : "0"
   incremented_version = format("%d", parseint(local.latest_version, 10) + 1)
 
-  # Raw base AMI name string
-  raw_ami_name = "${var.tags_name}-v${local.timestamp}-${local.incremented_version}"
+  # HCL2-native sanitization (replaces spaces with hyphens)
+  clean_ami_name = replace("${var.tags_name}-v${local.timestamp}-${local.incremented_version}", " ", "-")
 }
 
 # --- Source Configuration ---
 
 source "amazon-ebs" "windows_buildami" {
-  ami_name                = clean_resource_name(local.raw_ami_name)
+  ami_name                = local.clean_ami_name
   ami_description         = var.ami_description
   source_ami              = local.selected_source_ami_id
   instance_type           = var.instance_type
@@ -251,7 +251,7 @@ source "amazon-ebs" "windows_buildami" {
   }
 
   tags = {
-    "Name"             = clean_resource_name(local.raw_ami_name)
+    "Name"             = local.clean_ami_name
     "source_ami_id"    = local.selected_source_ami_id
     "source_ami_name"  = local.selected_source_ami_name
     "source_ami_owner" = local.selected_source_ami_owner
@@ -262,7 +262,7 @@ source "amazon-ebs" "windows_buildami" {
   }
 
   run_tags = {
-    "Name"               = clean_resource_name(local.raw_ami_name)
+    "Name"               = local.clean_ami_name
     "application-owner"  = var.tags_application_owner
     "purpose"            = var.tags_purpose
     "product"            = var.tags_product
@@ -274,7 +274,7 @@ source "amazon-ebs" "windows_buildami" {
   }
 
   run_volume_tags = {
-    "Name"               = clean_resource_name(local.raw_ami_name)
+    "Name"               = local.clean_ami_name
     "application-owner"  = var.tags_application_owner
     "purpose"            = var.tags_purpose
     "product"            = var.tags_product
