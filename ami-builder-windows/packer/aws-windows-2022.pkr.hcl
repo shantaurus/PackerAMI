@@ -240,7 +240,8 @@ source "amazon-ebs" "windows_buildami" {
   pause_before_connecting = var.pause_before_connecting
   max_retries             = var.max_retries
 
-  user_data_file = "../Scripts/bootstrap-winrm.ps1"
+  # --- YOUR SCRIPT GOES HERE ---
+  user_data_file = "../Scripts/bootstrap-winrm.ps1" # Ensure this path matches your repo structure
 
   launch_block_device_mappings {
     device_name           = "/dev/sda1"
@@ -314,13 +315,6 @@ build {
   # 3. Sanitize Environment Variables
   provisioner "powershell" {
     script = "../Scripts/sanitize-env.ps1"
-  }
-
-  # 4. Generalize with Sysprep
-  provisioner "powershell" {
-    script      = "../Scripts/run_sysprep.ps1"
-    max_retries = 5
-    pause_after = "120s"
   }
 
   post-processor "manifest" {
